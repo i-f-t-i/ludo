@@ -1,0 +1,353 @@
+/* style.css */
+
+:root {
+    --board-size: 600px;
+    --grid-size: 15;
+    --square-size: calc(var(--board-size) / var(--grid-size));
+    --base-area-grid-span: 6;
+    --center-area-grid-span: 3;
+    --path-start-col: calc(var(--base-area-grid-span) + 1); /* 7 */
+    --path-mid-col: calc(var(--path-start-col) + 1); /* 8 */
+    --path-end-col: calc(var(--path-start-col) + 2); /* 9 */
+
+    --piece-scale-factor: 0.75; /* Adjusted piece size relative to square */
+    --piece-size: calc(var(--square-size) * var(--piece-scale-factor));
+    --piece-home-spot-size: calc(var(--square-size) * 1.1);
+
+    /* Colors */
+    --red-color: #f04141;  /* Slightly adjusted colors */
+    --green-color: #30c130;
+    --yellow-color: #f5d400;
+    --blue-color: #4080f0;
+    --white-color: #FFFFFF;
+    --off-white-color: #f8f8f8; /* For path squares */
+    --light-gray: #f0f0f0; /* Body bg */
+    --mid-gray: #dcdcdc; /* Grid lines */
+    --dark-gray: #444; /* Text, borders */
+    --border-color: #333; /* Board border */
+
+    /* Variables for dynamic coloring set by JS */
+    --start-color: var(--white-color); /* Default */
+    --home-path-color: var(--white-color); /* Default */
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Nicer font */
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    background-color: var(--light-gray);
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+h1 {
+    margin-bottom: 20px; /* More space */
+    color: var(--dark-gray);
+    font-weight: 600;
+}
+
+.board {
+    width: var(--board-size);
+    height: var(--board-size);
+    border: 3px solid var(--border-color);
+    position: relative;
+    background-color: var(--white-color); /* Grid lines drawn on squares */
+    display: grid;
+    grid-template-columns: repeat(var(--grid-size), 1fr);
+    grid-template-rows: repeat(var(--grid-size), 1fr);
+    box-sizing: border-box;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1); /* Softer shadow */
+}
+
+/* --- Areas using Grid Area --- */
+.base-area {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+    /* Background color applied to the whole area */
+}
+.base-area.red    { grid-area: 1 / 1  / span var(--base-area-grid-span) / span var(--base-area-grid-span); background-color: var(--red-color); }
+.base-area.green  { grid-area: 1 / 10 / span var(--base-area-grid-span) / span var(--base-area-grid-span); background-color: var(--green-color); }
+.base-area.yellow { grid-area: 10 / 10 / span var(--base-area-grid-span) / span var(--base-area-grid-span); background-color: var(--yellow-color); }
+.base-area.blue   { grid-area: 10 / 1  / span var(--base-area-grid-span) / span var(--base-area-grid-span); background-color: var(--blue-color); }
+
+.base-inner {
+    width: 78%; /* Slightly larger inner area */
+    height: 78%;
+    background-color: var(--white-color);
+    border-radius: 15%; /* Less rounding */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 10%; /* Slightly more gap */
+    padding: 10%; /* Adjust padding */
+    box-sizing: border-box;
+    border: 1px solid rgba(0,0,0,0.05); /* Very faint border */
+    box-shadow: none; /* Remove inner shadow */
+}
+
+.piece-home-spot {
+    background-color: var(--off-white-color); /* Use off-white */
+    border-radius: 50%;
+    border: 1.5px dashed var(--mid-gray); /* Dashed border using grid line color */
+    opacity: 1; /* No fade */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.center-home {
+    grid-area: 7 / 7 / span var(--center-area-grid-span) / span var(--center-area-grid-span);
+    position: relative;
+    /* No background/border needed */
+}
+.center-home .triangle {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    --triangle-size: calc(var(--square-size) * 1.5); /* Fill quadrant */
+}
+/* Triangles meeting exactly in the center */
+.center-home .triangle.red    { top: 0; left: 0; border-width: var(--triangle-size) var(--triangle-size) 0 0; border-color: var(--red-color) transparent transparent transparent; }
+.center-home .triangle.green  { top: 0; right: 0; border-width: var(--triangle-size) 0 0 var(--triangle-size); border-color: transparent transparent transparent var(--green-color); }
+.center-home .triangle.yellow { bottom: 0; right: 0; border-width: 0 0 var(--triangle-size) var(--triangle-size); border-color: transparent transparent var(--yellow-color) transparent; }
+.center-home .triangle.blue   { bottom: 0; left: 0; border-width: 0 var(--triangle-size) var(--triangle-size) 0; border-color: transparent var(--blue-color) transparent transparent; }
+
+
+/* --- Squares --- */
+.square {
+    /* Default appearance for all grid cells initially */
+    background-color: var(--white-color);
+    border: 1px solid var(--mid-gray);
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative; /* Important for ::after positioning */
+}
+
+/* Style path squares specifically */
+.path-square {
+    background-color: var(--off-white-color); /* Make path slightly off-white */
+}
+
+/* Remove borders for grid cells inside the colored base areas and center home */
+.square.no-border {
+    border: none;
+    /* Ensure no background color if it's not a path square */
+    background-color: transparent;
+}
+.path-square.no-border { /* If a path square somehow ends up inside base */
+     background-color: transparent;
+}
+
+
+/* Colored Squares: Start and Home Path */
+.square.start-square {
+    background-color: var(--start-color); /* Use CSS var set in JS */
+}
+.square.home-path-square {
+    background-color: var(--home-path-color); /* Use CSS var set in JS */
+}
+/* Override path square default background & border for colored squares */
+.square.start-square, .square.home-path-square {
+     border-color: rgba(0,0,0,0.1); /* Darker border for colored squares */
+}
+
+
+/* --- Safe squares (Star indicator - Centered Positioning) --- */
+/* Apply to non-colored path squares at specific indices (9, 22, 35, 48) */
+.square.safe-square:not(.start-square):not(.home-path-square)::after {
+    content: '★';
+    position: absolute;
+    top: 50%; /* Center vertically */
+    left: 50%; /* Center horizontally */
+    transform: translate(-50%, -50%); /* Precise centering */
+    font-size: calc(var(--square-size) * 0.6); /* Adjust size as needed */
+    line-height: 1; /* Ensure single line */
+    color: rgba(0, 0, 0, 0.25); /* Star color */
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* --- Blocked Squares (No special styling based on latest image) --- */
+/* Indices 0, 13, 26, 39 are just normal path squares */
+/* Their styling will be the default .path-square styling */
+
+
+/* --- Pieces --- */
+.piece {
+    --piece-color-base: var(--dark-gray); /* Default to allow override */
+    width: var(--piece-size);
+    height: var(--piece-size);
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0, 0.5); /* Refined border */
+    box-sizing: border-box;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: calc(var(--piece-size) * 0.55); /* Adjust font size */
+    font-weight: 600;
+    color: var(--white-color);
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.4); /* Refined shadow */
+    position: absolute;
+    z-index: 1;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease;
+    /* Gradient for 3D effect */
+    background-image: radial-gradient(circle at 50% 40%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 60%),
+                      linear-gradient(to bottom, var(--piece-color-light) 0%, var(--piece-color-base) 100%);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2), /* Bottom shadow */
+                inset 0 1px 1px rgba(255,255,255,0.2); /* Inner top highlight */
+}
+
+.piece.red    { --piece-color-base: var(--red-color); --piece-color-light: #ff7070; }
+.piece.green  { --piece-color-base: var(--green-color); --piece-color-light: #70e070; }
+.piece.yellow { --piece-color-base: var(--yellow-color); --piece-color-light: #ffe860; }
+.piece.blue   { --piece-color-base: var(--blue-color); --piece-color-light: #70a0ff; }
+
+
+/* Stacking offsets */
+.piece.offset-1 { transform: translate(-14%, -14%); z-index: 1; }
+.piece.offset-2 { transform: translate(14%, -14%); z-index: 2; }
+.piece.offset-3 { transform: translate(-14%, 14%); z-index: 3; }
+.piece.offset-4 { transform: translate(14%, 14%); z-index: 4; }
+
+
+.piece.movable {
+    box-shadow: 0 0 10px 4px gold, /* Highlight */
+                0 3px 6px rgba(0,0,0,0.3), /* Enhanced bottom shadow */
+                inset 0 1px 1px rgba(255,255,255,0.2); /* Keep inner highlight */
+    z-index: 10 !important;
+}
+/* Apply scale *in addition* to offset */
+.piece.movable.offset-1 { transform: scale(1.1) translate(-14%, -14%); }
+.piece.movable.offset-2 { transform: scale(1.1) translate(14%, -14%); }
+.piece.movable.offset-3 { transform: scale(1.1) translate(-14%, 14%); }
+.piece.movable.offset-4 { transform: scale(1.1) translate(14%, 14%); }
+.piece.movable:not([class*="offset-"]) { transform: scale(1.1); } /* Scale if not offset */
+
+
+.piece.finished {
+    opacity: 0.5; cursor: default; box-shadow: none;
+    background-image: radial-gradient(circle at 50% 50%, var(--mid-gray) 0%, var(--light-gray) 100%); /* Grey out */
+}
+
+/* --- Controls --- */
+.controls {
+    margin-top: 25px; /* More space */
+    text-align: center;
+    background-color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    min-width: 280px; /* Slightly wider */
+}
+
+.player-info {
+    margin-bottom: 12px;
+    font-size: 1.25em; /* Slightly larger */
+    font-weight: 500; /* Normal weight */
+    color: var(--dark-gray);
+}
+#player-color-indicator {
+    display: inline-block;
+    width: 1.1em; /* Slightly larger */
+    height: 1.1em;
+    border-radius: 50%;
+    margin-left: 8px;
+    vertical-align: middle;
+    border: 1px solid var(--dark-gray);
+    box-shadow: inset 0 0 3px rgba(0,0,0,0.2);
+}
+#player-color-indicator.red { background-color: var(--red-color); } /* Use updated colors */
+#player-color-indicator.green { background-color: var(--green-color); }
+#player-color-indicator.yellow { background-color: var(--yellow-color); }
+#player-color-indicator.blue { background-color: var(--blue-color); }
+
+.dice-area {
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#roll-dice-btn {
+    padding: 10px 18px;
+    font-size: 1em;
+    cursor: pointer;
+    margin-right: 20px;
+    background-color: #eee;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+}
+#roll-dice-btn:hover:not(:disabled) {
+    background-color: #ddd;
+}
+#roll-dice-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* --- DICE VISUAL --- */
+#dice-result {
+    font-size: 0; /* Hide the number */
+    font-weight: bold;
+    color: var(--dark-gray);
+    width: 48px; /* Fixed size */
+    height: 48px;
+    padding: 5px; /* Padding inside the dice */
+    border: 1.5px solid var(--dark-gray);
+    border-radius: 6px;
+    background-color: var(--off-white-color); /* Dice bg */
+    display: grid; /* Use grid for dots */
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 3px; /* Gap between dots */
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.15), 1px 1px 3px rgba(0,0,0,0.1); /* Inset and outer shadow */
+}
+.dice-dot {
+    background-color: var(--dark-gray);
+    border-radius: 50%;
+    width: 8px; /* Dot size */
+    height: 8px;
+    align-self: center;
+    justify-self: center;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.3);
+}
+/* Dot Positioning Classes (Applied by JS) */
+.dot-1-5 { grid-area: 2 / 2; } /* Center dot (for 1, 3, 5) */
+.dot-2-1 { grid-area: 1 / 1; } /* Top-left (for 2, 3, 4, 5, 6) */
+.dot-2-3 { grid-area: 3 / 3; } /* Bottom-right (for 2, 3, 4, 5, 6) */
+.dot-4-1 { grid-area: 1 / 3; } /* Top-right (for 4, 5, 6) */
+.dot-4-3 { grid-area: 3 / 1; } /* Bottom-left (for 4, 5, 6) */
+.dot-6-1 { grid-area: 2 / 1; } /* Middle-left (for 6) */
+.dot-6-3 { grid-area: 2 / 3; } /* Middle-right (for 6) */
+
+
+#message-area {
+    margin-top: 12px;
+    min-height: 1.5em;
+    font-style: italic;
+    color: #666; /* Slightly darker message text */
+    font-size: 0.95em;
+}
+
+#winner-area {
+    margin-top: 15px;
+    font-size: 1.3em;
+    font-weight: bold;
+    color: darkgreen;
+}
