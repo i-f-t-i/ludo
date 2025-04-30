@@ -32,21 +32,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const homeEntryOffset = { red: 50, green: 11, yellow: 24, blue: 37 }; // Path index *before* the turn
 
     // --- Star squares (These get the star graphic) ---
-    // Based on standard Ludo and the visual in the *latest* image (Indices 9, 22, 35, 48)
+    // BASED on the VISUAL in the LATEST image (Indices 9, 22, 35, 48)
     const safeSquareIndices = [9, 22, 35, 48];
 
-    // --- Blocked squares (These are just normal path squares visually, no special rule) ---
-    // Indices 0, 13, 26, 39 are just normal squares in the path.
-    // No special list or logic needed for them acting as blocks based on the *latest* image.
-    const blockedSquareIndices = [0, 13, 26, 39]; // Still list them to *not* add safe="true" to them, but remove blocked logic.
+    // --- Blocked squares (Black and pieces cannot land on them based on previous interpretation) ---
+    // Indices 0, 13, 26, 39 are the black squares immediately before each start square.
+    const blockedSquareIndices = [0, 13, 26, 39];
 
 
     let squareElementsMap = {};
 
-    // --- Initialization ---
+
+    // --- Initialization (MOVED TO TOP) ---
     function initGame() {
         // console.log("--- INIT GAME ---");
-        createBoard();
+        createBoard(); // createBoard now uses the corrected getPathCoordinates and updated safe/blocked lists
         piecePositions = {}; pieces = {}; boardElement.querySelectorAll('.piece').forEach(p => p.remove());
         players.forEach(color => { for (let i = 1; i <= piecesPerPlayer; i++) { const pieceId = `${color[0]}${i}`; const homeSpotId = `${color}-home-${i}`; piecePositions[pieceId] = homeSpotId; createPieceElement(pieceId, color, homeSpotId); } });
         currentPlayerIndex = 0; currentDiceRoll = 0; rolledSixStreak = 0;
@@ -55,12 +55,50 @@ document.addEventListener('DOMContentLoaded', () => {
         // console.log(`Init Complete. State: ${gameState}, Button Disabled: ${rollDiceBtn.disabled}`);
     }
 
-    // --- Board Generation ---
+
+    // --- Helper functions for board layout ---
+    function isBaseArea(r, c) { const baseSpan = 6; const endCoord = GRID_SIZE - baseSpan + 1; return (r <= baseSpan && c <= baseSpan) || (r <= baseSpan && c >= endCoord) || (r >= endCoord && c >= endCoord) || (r >= endCoord && c <= baseSpan); }
+    function isCenterArea(r, c) { const centerSpan = 3; const centerStart = Math.floor(GRID_SIZE / 2) + 1 - Math.floor(centerSpan / 2); const centerEnd = centerStart + centerSpan - 1; return r >= centerStart && r <= centerEnd && c >= centerStart && c <= centerEnd; }
+    function getBaseAreaGridInfo(color) { const span = 6; const end = GRID_SIZE - span + 1; switch(color) { case 'red': return { row: 1, col: 1, span: span }; case 'green': return { row: 1, col: end, span: span }; case 'yellow': return { row: end, col: end, span: span }; case 'blue': return { row: end, col: 1, span: span }; } }
+    // --- CORRECTED getPathCoordinates (Fixed Green Loop) ---
+    function getPathCoordinates() {
+        const coords = {};
+        let index = 0;
+
+        // Red Path (R7 C1-6, R6-1 C7, R1 C8)
+        for (let c = 1; c <= 6; c++) coords[index++] = { row: 7, col: c }; // 0-5
+        for (let r = 6; r >= 1; r--) coords[index++] = { row: r, col: 7 }; // 6-11
+        coords[index++] = { row: 1, col: 8 }; // 12
+
+        // Green Path (R1 C9, R2-6 C9, R7 C10-15, R8 C15)
+        coords[index++] = { row: 1, col: 9 }; // 13
+        for (let r = 2; r <= 6; r++) coords[index++] = { row: r, col: 9 }; // 14-18
+        for (let c = 10; c <= 15; c++) coords[index++] = { row: 7, col: c }; // 19-24
+        coords[index++] = { row: 8, col: 15 }; // 25
+
+        // Yellow Path (R9 C15, R9 C14-10, R10-15 C9, R15 C8)
+        coords[index++] = { row: 9, col: 15 }; // 26
+        for (let c = 14; c >= 10; c--) coords[index++] = { row: 9, col: c }; // 27-31
+        for (let r = 10; r <= 15; r++) coords[index++] = { row: r, col: 9 }; // 32-37
+        coords[index++] = { row: 15, col: 8 }; // 38
+
+        // Blue Path (R15 C7, R14-10 C7, R9 C6-1, R8 C1)
+        coords[index++] = { row: 15, col: 7 }; // 39
+        for (let r = 14; r >= 10; r--) coords[index++] = { row: r, col: 7 }; // 40-44
+        for (let c = 6; c >= 1; c--) coords[index++] = { row: 9, col: c }; // 45-50
+        coords[index++] = { row: 8, col: 1 }; // 51
+
+        if (Object.keys(coords).length !== 52) console.warn(`Path generation mismatch! Expected 52, Got ${Object.keys(coords).length}`);
+        return coords;
+    }
+    function getHomePathCoordinates() { const coords = { red: [], green: [], yellow: [], blue: [] }; const midRow = 8; const midCol = 8; const pathEndSquares = homePathSquares; for (let i = 0; i < pathEndSquares; i++) coords.red.push({ row: midRow, col: i + 2 }); for (let i = 0; i < pathEndSquares; i++) coords.green.push({ row: i + 2, col: midCol }); for (let i = 0; i < pathEndSquares; i++) coords.yellow.push({ row: midRow, col: GRID_SIZE - 1 - i }); for (let i = 0; i < pathEndSquares; i++) coords.blue.push({ row: GRID_SIZE - 1 - i, col: midCol }); return coords; }
+
+
+    // --- Board Generation (Uses corrected lists) ---
     function createBoard() {
         boardElement.innerHTML = ''; squareElementsMap = {};
-        const pathCoords = getPathCoordinates(); // Uses NEW path coordinates
+        const pathCoords = getPathCoordinates(); // Uses CORRECTED path coordinates
         const homePathCoords = getHomePathCoordinates();
-        // const allCoords = { ...pathCoords, ...Object.fromEntries(Object.entries(homePathCoords).flatMap(([color, coords]) => coords.map((c, i) => [`home-${color}-${i}`, c]))) }; // Combine for lookup - not used like this
 
         for (let r = 1; r <= GRID_SIZE; r++) { for (let c = 1; c <= GRID_SIZE; c++) { const cell = document.createElement('div'); cell.style.gridRow = r; cell.style.gridColumn = c; cell.classList.add('square'); cell.dataset.gridPos = `${r},${c}`; boardElement.appendChild(cell); if (isBaseArea(r, c) || isCenterArea(r, c)) { cell.classList.add('no-border'); } } }
 
@@ -71,11 +109,10 @@ document.addEventListener('DOMContentLoaded', () => {
                  const squareId = `path-${index}`; square.id = squareId;
                  square.classList.add('path-square'); square.dataset.squareId = squareId; square.dataset.type = 'path'; square.dataset.index = index;
 
-                 // Add safe square class (for stars) - these indices GET the star graphic
+                 // Add safe square class (for stars)
                  if (safeSquareIndices.includes(index)) { square.classList.add('safe-square'); square.dataset.safe = 'true'; }
 
                  // Start squares (are also safe from capture, but don't have stars)
-                 // Add safe="true" to starts explicitly
                  Object.entries(startOffsets).forEach(([color, startIdx]) => {
                      if (index === startIdx) {
                          square.classList.add('start-square');
@@ -85,16 +122,10 @@ document.addEventListener('DOMContentLoaded', () => {
                      }
                  });
 
-                 // Add blocked square class (for black styling) - these indices CANNOT be landed on in the image you last sent
-                 // Let's add the class, but the rule is handled in canLandOn
+                 // Add blocked square class (for black styling) - handled in canLandOn
                  if (blockedSquareIndices.includes(index)) {
                      square.classList.add('blocked-square');
-                     // Do NOT add data-blocked="true" if they are just normal path squares visually
-                     // My previous interpretation was wrong based on the *latest* image.
-                     // Let's just add the class for styling, the rule is the *standard* no-landing rule.
-                     // If they *cannot* be landed on, we NEED data-blocked="true" for canLandOn check.
-                     // Re-reading the last image again, the black squares are indeed empty. Let's keep data-blocked.
-                     square.dataset.blocked = 'true'; // Re-add data-blocked for landing rule
+                     square.dataset.blocked = 'true'; // Add data-blocked for landing rule
                  }
 
 
@@ -128,11 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
          centerHome.style.gridArea = `${centerStart} / ${centerStart} / span ${centerSpan} / span ${centerSpan}`;
          players.forEach(color => { const triangle = document.createElement('div'); triangle.classList.add('triangle', color); centerHome.appendChild(triangle); }); boardElement.appendChild(centerHome); squareElementsMap['center-home'] = centerHome;
     }
-    function isBaseArea(r, c) { const baseSpan = 6; const endCoord = GRID_SIZE - baseSpan + 1; return (r <= baseSpan && c <= baseSpan) || (r <= baseSpan && c >= endCoord) || (r >= endCoord && c >= endCoord) || (r >= endCoord && c <= baseSpan); }
-    function isCenterArea(r, c) { const centerSpan = 3; const centerStart = Math.floor(GRID_SIZE / 2) + 1 - Math.floor(centerSpan / 2); const centerEnd = centerStart + centerSpan - 1; return r >= centerStart && r <= centerEnd && c >= centerStart && c <= centerEnd; }
-    function getBaseAreaGridInfo(color) { const span = 6; const end = GRID_SIZE - span + 1; switch(color) { case 'red': return { row: 1, col: 1, span: span }; case 'green': return { row: 1, col: end, span: span }; case 'yellow': return { row: end, col: end, span: span }; case 'blue': return { row: end, col: 1, span: span }; } }
-    function getPathCoordinates() { const coords = {}; let index = 0; for (let c = 1; c <= 6; c++) coords[index++] = { row: 7, col: c }; for (let r = 6; r >= 1; r--) coords[index++] = { row: r, col: 7 }; coords[index++] = { row: 1, col: 8 }; coords[index++] = { row: 1, col: 9 }; for (let r = 2; r <= 6; r++) coords[index++] = { row: r, col: 9 }; for (let c = 10; c <= 15; c++) coords[index++] = { row: 7, col: c }; coords[index++] = { row: 8, col: 15 }; coords[index++] = { row: 9, col: 15 }; for (let c = 14; c >= 10; c--) coords[index++] = { row: 9, col: c }; for (let r = 10; r <= 15; r++) coords[index++] = { row: r, col: 9 }; coords[index++] = { row: 15, col: 8 }; coords[index++] = { row: 15, col: 7 }; for (let r = 14; r >= 10; r--) coords[index++] = { row: r, col: 7 }; for (let c = 6; c >= 1; c--) coords[index++] = { row: 9, col: c }; coords[index++] = { row: 8, col: 1 }; if (Object.keys(coords).length !== 52) console.warn(`Path generation mismatch! Expected 52, Got ${Object.keys(coords).length}`); return coords; }
-    function getHomePathCoordinates() { const coords = { red: [], green: [], yellow: [], blue: [] }; const midRow = 8; const midCol = 8; const pathEndSquares = homePathSquares; for (let i = 0; i < pathEndSquares; i++) coords.red.push({ row: midRow, col: i + 2 }); for (let i = 0; i < pathEndSquares; i++) coords.green.push({ row: i + 2, col: midCol }); for (let i = 0; i < pathEndSquares; i++) coords.yellow.push({ row: midRow, col: GRID_SIZE - 1 - i }); for (let i = 0; i < pathEndSquares; i++) coords.blue.push({ row: GRID_SIZE - 1 - i, col: midCol }); return coords; }
 
     // --- Piece Handling ---
     function createPieceElement(id, color, initialSquareId) { const piece = document.createElement('div'); piece.classList.add('piece', color); piece.id = id; piece.dataset.pieceId = id; piece.textContent = id.slice(1); piece.addEventListener('click', handlePieceClick); pieces[id] = piece; }
@@ -148,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function highlightMovablePieces() { clearHighlights(); const color = players[currentPlayerIndex]; const movable = getMovablePieces(color, currentDiceRoll); movable.forEach(pieceId => { pieces[pieceId]?.classList.add('movable'); }); return movable; }
     function getMovablePieces(color, diceRoll) { const movable = []; const playerPieceIds = Object.keys(pieces).filter(id => id.startsWith(color[0]) && !pieces[id].classList.contains('finished')); playerPieceIds.forEach(pieceId => { const currentSquareId = piecePositions[pieceId]; const currentSquare = squareElementsMap[currentSquareId]; if (!currentSquare) return; if (currentSquare.dataset.type === 'base') { if (diceRoll === 6) { const startSquareId = `path-${startOffsets[color]}`; if (canLandOn(startSquareId, pieceId)) movable.push(pieceId); } } else { const targetSquareId = calculateTargetSquareId(pieceId, currentSquareId, diceRoll); if (targetSquareId && canLandOn(targetSquareId, pieceId)) movable.push(pieceId); } }); return movable; }
 
-    // --- canLandOn Logic (Corrected for Blocked vs. Safe from Capture) ---
+    // --- canLandOn Logic (Corrected for Base-to-Start Capture) ---
     function canLandOn(targetSquareId, movingPieceId) {
         if (!targetSquareId) return false;
         if (targetSquareId.startsWith('finish-')) return true; // Always possible to finish
@@ -162,25 +188,43 @@ document.addEventListener('DOMContentLoaded', () => {
         const ownPiecesOnTarget = piecesOnTarget.filter(id => pieceColorFromId(id) === movingPieceColor);
         const opponentPiecesOnTarget = piecesOnTarget.filter(id => pieceColorFromId(id) !== movingPieceColor);
 
-        // --- Check against Blocked Squares (Black Squares: 0, 13, 26, 39) ---
-        // Rule based on previous interpretation: Pieces CANNOT land on these specific black squares.
+        // --- Rule 1: Base-to-Start Capture (Highest Priority) ---
+        // If moving from base to *own* start square:
+        // - Can land unless blocked by 2+ OWN pieces.
+        // - Capture any opponent pieces present.
+        const pieceCurrentPosId = piecePositions[movingPieceId];
+        const isMovingFromBase = pieceCurrentPosId && squareElementsMap[pieceCurrentPosId]?.dataset?.type === 'base';
+        const isOwnStartSquare = targetSquareId === `path-${startOffsets[movingPieceColor]}`;
+
+        if (isMovingFromBase && isOwnStartSquare) {
+             if (ownPiecesOnTarget.length >= 2) {
+                 // console.log(`CANNOT LAND (from base): ${targetSquareId} blocked by own pair.`);
+                 return false; // Cannot move out if 2+ own pieces block start
+             }
+             // console.log(`CAN LAND (from base): ${targetSquareId} (Opponent(s) present: ${opponentPiecesOnTarget.length > 0})`);
+             return true; // Allowed - capture will be handled in handlePieceClick
+        }
+
+
+        // --- Rule 2: Cannot Land on Blocked Squares (Black Squares: 0, 13, 26, 39) ---
+        // Applies to ALL moves *except* the special base-to-start rule handled above.
+        // Based on image interpretation: Pieces CANNOT land on these specific black squares.
         if (targetSquare.dataset.blocked === 'true') {
              // console.log(`CANNOT LAND: ${targetSquareId} is a blocked square.`);
             return false;
         }
 
-        // --- Check against Own Piece Block ---
-        // Rule: You cannot land on a square that already has 2 or more of your own pieces.
-        // This applies to all squares except Finish.
+        // --- Rule 3: Cannot Land on Own Piece Block ---
+        // Applies to all remaining squares (path, home) except Finish.
         if (ownPiecesOnTarget.length >= 2) {
             // console.log(`CANNOT LAND: ${targetSquareId} blocked by own pair.`);
             return false;
         }
 
-        // --- Check Capture on Safe Squares (Squares marked safe="true": Starts and Stars) ---
-        // Safe squares are Stars (9, 22, 35, 48) AND Start squares (1, 14, 27, 40).
-        // Rule: On a safe square, you CANNOT land if it has ANY opponent pieces.
-        if (targetSquare.dataset.safe === 'true') {
+        // --- Rule 4: Cannot Land on Safe Squares (Stars: 9, 22, 35, 48) if Opponent Present ---
+        // Safe squares are Stars (and Start squares, but Start is handled by Rule 1 or Own Block).
+        // Rule: On a safe square, you CANNOT capture an opponent. If an opponent is there, you cannot land.
+        if (targetSquare.dataset.safe === 'true') { // Check if it's a safe square
              if (opponentPiecesOnTarget.length > 0) {
                  // console.log(`CANNOT LAND: Safe square ${targetSquareId} occupied by opponent(s).`);
                  return false; // Cannot land on a safe square occupied by ANY opponents
@@ -189,10 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
              return true; // Can land on a safe square if no opponents are there (regardless of own pieces < 2)
         }
 
-        // --- Check Capture on Non-Safe, Non-Blocked Squares ---
+        // --- Rule 5: Cannot Land on Non-Safe, Non-Blocked Squares Blocked by Opponent Pair ---
         // This is any path square that is *not* a start, star, or black square.
-        // Rule: On these squares, you CAN land if it's empty, has 1 opponent (capture), or has 1 of your own.
-        // You CANNOT land if it has 2+ opponents (forms a blockade).
+        // Rule: On these squares, you CANNOT land if it has 2+ opponents (forms a blockade).
         if (opponentPiecesOnTarget.length >= 2) {
              // console.log(`CANNOT LAND: Non-safe/non-blocked square ${targetSquareId} blocked by opponent pair/group.`);
              return false;
@@ -221,8 +264,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Move within Home Path
         if (type === 'home') {
             const targetHomeIndex = currentIndex + diceRoll;
-            if (targetHomeIndex < homePathSquares) return `home-${pieceColor}-${targetHomeIndex}`;
-            else if (targetHomeIndex === homePathSquares) return `finish-${pieceColor}`;
+            if (targetHomeIndex < homePathSquares) return `home-${pieceColor}-${targetHomeIndex}`; // Land on home square 0-4
+            else if (targetHomeIndex === homePathSquares) return `finish-${pieceColor}`; // Exact finish (index 5)
             else return null; // Overshot
         }
 
@@ -276,9 +319,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetSquare = squareElementsMap[targetSquareId];
 
         // Capture is allowed ONLY if landing on a non-safe AND non-blocked square occupied by exactly one opponent
-        // Note: The previous check was targetSquare.dataset.blocked !== 'true'. Let's be explicit: is it a BLOCKED index?
-         const targetSquareIsBlocked = targetSquare?.dataset?.blocked === 'true'; // Use optional chaining for safety
-        if (targetSquare && !targetSquareId.startsWith('finish-') && targetSquare.dataset.type !== 'base' && targetSquare.dataset.safe !== 'true' && !targetSquareIsBlocked) {
+         const targetSquareIsBlocked = targetSquare?.dataset?.blocked === 'true';
+        // Capture happens if target is a path square, not base/finish, not safe, not blocked, and has exactly 1 opponent
+        if (targetSquare && targetSquare.dataset.type === 'path' && !targetSquare.dataset.safe && !targetSquareIsBlocked) {
             const piecesOnTarget = getPiecesOnSquare(targetSquareId); const opponentPieces = piecesOnTarget.filter(pId => !pId.startsWith(pieceColor[0]));
             if (opponentPieces.length === 1) {
                 capturedOpponentPieceId = opponentPieces[0]; const targetBaseSpot = findEmptyBaseSpot(pieceColorFromId(capturedOpponentPieceId));
