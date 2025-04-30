@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ludo Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>Ludo Game</h1>
+
+        <div class="board" id="ludo-board">
+            <!-- Populated by JavaScript -->
+        </div>
+
+        <div class="controls">
+            <div class="player-info">
+                Current Player: <span id="current-player">Red</span>
+                (<span id="player-color-indicator" class="indicator red"></span>)
+            </div>
+            <div class="dice-area">
+                <button id="roll-dice-btn">Roll Dice</button>
+                <div id="dice-result" class="dice"></div> <!-- Dice dots go here -->
+            </div>
+            <div id="message-area">Roll the dice to start!</div>
+            <div id="winner-area"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
