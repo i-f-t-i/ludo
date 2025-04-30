@@ -1,6 +1,9 @@
 # ludo
 Ludo in HTML, CSS &amp; JavaScript
 
+![image](https://github.com/user-attachments/assets/8a4e9d58-95b7-44c3-9d9b-b455b2b2460e)
+
+
 Ludo Game Project - How to Run
 
 This document explains how to set up and run the Ludo game project. Please note that this project is currently a work in progress.
